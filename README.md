@@ -1,10 +1,19 @@
 # annotated-ml-models
-This repo contains pedagogic implementations of popular ML models with detailed annotations.
+This repository contains pedagogic implementations of popular ML models with detailed annotations.
+
+Most models are implemented in PyTorch.
 
 ## Models
 - [yolo-v3](yolo-v3/)
 
-## Format
+## Download & Installation
+Clone the repository with:
+```git clone https://github.com/davidmaamoaix/annotated-ml-models.git```
+
+Remember to `cd` into the directory:
+```cd annotated-ml-models```
+
+## Usage
 Each model has its subdirectory containing the following files:
 - `<model_name>.py`: the model's code
 - `train_test.py`: the script for training & testing the model
