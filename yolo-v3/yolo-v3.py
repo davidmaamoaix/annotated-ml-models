@@ -15,6 +15,20 @@ class RouteLayer(t.nn.Module):
         super(RouteLayer, self).__init__()
         self.layer = assigned_layer
 
+# concatenates the output of multiple previous layers together
+class ConcatenateLayer(t.nn.Module):
+
+    def __init__(self, assigned_layers):
+        super(ConcatenateLayer, self).__init__()
+        self.layers = assigned_layers
+
+
+class YoloLayer(t.nn.Module):
+
+    def __init__(self, anchors):
+        super(YoloLayer, self).__init__()
+        self.anchors = anchors
+
 
 # Darknetconv2D_BN_Leaky is the primary building block
 # of the yolo-v3 network; it consists of a convolution
@@ -35,7 +49,7 @@ def dbl_unit(in_channels=3, out_channels=64, kernel_size=3, stride=1, pad=1):
     dbl_block.add_module('darknet_conv2d', conv)
 
     # batch norm layer
-
+    #
     # note that the batch norm layer comes before the leaky ReLU activation
     # due to leaky ReLU's nonlinearity. This results in a more stable
     # distribution (source: https://arxiv.org/abs/1502.03167)
@@ -64,7 +78,12 @@ def route_layer(target):
 # concatenates the output of the target layers among the channels axis as
 # a form of residual
 def concatenate_layers(targets):
-    pass
+    return ConcatenateLayer(targets)
+
+
+# the detection layer
+def yolo_layer(anchors=[(10, 13), (16, 30), (33, 23)]):
+    return YoloLayer(anchors)
 
 
 class YOLO_V3(t.nn.Module):
