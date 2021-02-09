@@ -45,7 +45,8 @@ class ResidualUnit(t.nn.Module):
 
         super(ResidualUnit, self).__init__()
 
-        # TODO: the padding doesn't seems right
+        # the conv_1 layer has a kernel of size 1, and therefore
+        # has no padding
         self.conv_1 = dbl_unit(in_channels, in_channels // 2, 1, pad=0)
         self.conv_2 = dbl_unit(in_channels // 2, in_channels)
 
@@ -131,3 +132,6 @@ class YOLO_V3(t.nn.Module):
         super(YOLO_V3, self).__init__()
         self.img_size = img_size
 
+
+a = ResidualBlock(64, 2)
+print(a(t.zeros(1, 64, 416, 416)))
