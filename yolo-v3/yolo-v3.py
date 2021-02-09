@@ -146,7 +146,7 @@ class YOLO_V3(t.nn.Module):
         self.y1_bundle = dbl_bundle(1024)
         self.y1_last = t.nn.Sequential(
             dbl_unit(512, 1024),
-            t.nn.Conv2d(1024, 75, 1, padding=0)
+            t.nn.Conv2d(1024, 255, 1, padding=0)
         )
 
         # conv (DBL) and upsample
@@ -157,7 +157,7 @@ class YOLO_V3(t.nn.Module):
         self.y2_bundle = dbl_bundle(512, special=768)
         self.y2_last = t.nn.Sequential(
             dbl_unit(256, 512),
-            t.nn.Conv2d(512, 75, 1, padding=0)
+            t.nn.Conv2d(512, 255, 1, padding=0)
         )
 
         self.y3_upsample = t.nn.Sequential(
@@ -167,7 +167,7 @@ class YOLO_V3(t.nn.Module):
         self.y3_bundle = dbl_bundle(256, special=384)
         self.y3_last = t.nn.Sequential(
             dbl_unit(128, 256),
-            t.nn.Conv2d(256, 75, 1, padding=0)
+            t.nn.Conv2d(256, 255, 1, padding=0)
         )
 
 
