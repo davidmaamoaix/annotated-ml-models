@@ -1,5 +1,5 @@
 # annotated-ml-models
-This repository contains pedagogic implementations of popular ML models with detailed annotations.
+A collection of pedagogic implementations of popular ML models with explanatory annotations.
 
 Most models are implemented in PyTorch.
 

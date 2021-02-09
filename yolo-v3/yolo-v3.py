@@ -53,7 +53,6 @@ class ResidualUnit(t.nn.Module):
     def forward(self, x):
         conv_1_output = self.conv_1(x)
         conv_2_output = self.conv_2(conv_1_output)
-        print(x.shape, conv_2_output.shape)
 
         return conv_2_output + x
 
@@ -131,7 +130,3 @@ class YOLO_V3(t.nn.Module):
 
         super(YOLO_V3, self).__init__()
         self.img_size = img_size
-
-
-a = ResidualBlock(64, 2)
-print(a(t.zeros(1, 64, 416, 416)))
