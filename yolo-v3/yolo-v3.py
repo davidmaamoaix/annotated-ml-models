@@ -58,7 +58,8 @@ class ResidualUnit(t.nn.Module):
 
 
 # a full residual block, consisting of one dbl_unit and
-# numerous ResidualUnit
+# numerous ResidualUnit; the out_channels of ResidualBlock
+# is 2 * in_channels
 class ResidualBlock(t.nn.Module):
 
     def __init__(self, in_channels, n_res_unit=1):
@@ -110,6 +111,22 @@ def dbl_unit(in_channels=3, out_channels=64, kernel_size=3, stride=1, pad=1):
     return dbl_block
 
 
+# 5 dbl_units bunched together, with alternating kernel size and channels:
+# 0.5 * in_channels for layer 1, 3, and 5, and in_channels for layer 2 and 4
+#
+# used after every concatenation
+def dbl_bundle(in_channels):
+    bundle = t.nn.Sequential(
+        dbl_unit(in_channels, in_channels // 2, 1, pad=0),
+        dbl_unit(in_channels // 2, in_channels),
+        dbl_unit(in_channels, in_channels // 2, 1, pad=0),
+        dbl_unit(in_channels // 2, in_channels),
+        dbl_unit(in_channels, in_channels // 2, 1, pad=0)
+    )
+
+    return bundle
+
+
 def upsample_unit(stride=2):
     return t.nn.Upsample(scale_factor=stride)
 
@@ -130,3 +147,45 @@ class YOLO_V3(t.nn.Module):
 
         super(YOLO_V3, self).__init__()
         self.img_size = img_size
+
+        # model begins with a convolution layer with 32 output channels
+        self.initial_conv = dbl_unit(3, 32)
+
+        # first 3 residual block; the separation from the rest is
+        # for making the routing of output layers easier
+        #
+        # note that the output of each residual block is 2 times
+        # its in_channels
+        self.residual_1 = t.nn.Sequential(
+            ResidualBlock(32, 1),
+            ResidualBlock(64, 2),
+            ResidualBlock(128, 8)
+        )
+
+        self.residual_2 = ResidualBlock(256, 8)
+        self.residual_3 = ResidualBlock(512, 4)
+
+        # layers responsible for the y1 output: 5 * conv (DBL) layers,
+        # another conv (DBL) layer, and a linear conv layer
+        self.y1_bundle = dbl_bundle(1024)
+        self.y1_last = t.nn.Sequential(
+            dbl_unit(512, 1024),
+            t.nn.Conv2d(1024, 75, 1, padding=1)
+        )
+
+    def forward(self, x):
+
+        # first conv layer
+        initial_conv_output = self.initial_conv(x)
+
+        residual_1_output = self.residual_1(initial_conv_output)
+        residual_2_output = self.residual_2(residual_1_output)
+        residual_3_output = self.residual_3(residual_2_output)
+
+        y1_bundle_output = self.y1_bundle(residual_3_output)
+        y1_last_output = self.y1_last(y1_bundle_output)
+
+        return y1_last_output
+
+a = YOLO_V3()
+print(a(t.zeros(1, 3, 416, 416)).shape)
