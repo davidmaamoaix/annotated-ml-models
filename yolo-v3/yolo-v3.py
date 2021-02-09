@@ -6,35 +6,6 @@ import torch as t
 import numpy as np
 
 
-# the routing layer routes the output of a previous layer to it
-#
-# e.g. the output of a routing layer assigned to the 1st layer
-# will output whatever the 1st layer outputs
-#
-# in the original implementation this also handles concatenation;
-# however, this script separates the two for readability
-class RouteLayer(t.nn.Module):
-
-    def __init__(self, assigned_layer):
-        super(RouteLayer, self).__init__()
-        self.layer = assigned_layer
-
-# concatenates the output of the target layers among the channels axis as
-# a form of residual
-class ConcatenateLayer(t.nn.Module):
-
-    def __init__(self, assigned_layers):
-        super(ConcatenateLayer, self).__init__()
-        self.layers = assigned_layers
-
-
-class YoloLayer(t.nn.Module):
-
-    def __init__(self, anchors):
-        super(YoloLayer, self).__init__()
-        self.anchors = anchors
-
-
 # a simple residual unit consisting of 2 dbl_units
 class ResidualUnit(t.nn.Module):
 
@@ -115,9 +86,14 @@ def dbl_unit(in_channels=3, out_channels=64, kernel_size=3, stride=1, pad=1):
 # 0.5 * in_channels for layer 1, 3, and 5, and in_channels for layer 2 and 4
 #
 # used after every concatenation
-def dbl_bundle(in_channels):
+#
+# special: int, the in_channels of the first dbl_unit (if different
+# from the in_channels parameter)
+def dbl_bundle(in_channels, special=None):
     bundle = t.nn.Sequential(
-        dbl_unit(in_channels, in_channels // 2, 1, pad=0),
+        dbl_unit(
+            special if special else in_channels, in_channels // 2, 1, pad=0
+        ),
         dbl_unit(in_channels // 2, in_channels),
         dbl_unit(in_channels, in_channels // 2, 1, pad=0),
         dbl_unit(in_channels // 2, in_channels),
@@ -127,8 +103,8 @@ def dbl_bundle(in_channels):
     return bundle
 
 
-def upsample_unit(stride=2):
-    return t.nn.Upsample(scale_factor=stride)
+def upsample_unit(scale_factor=2):
+    return t.nn.Upsample(scale_factor=scale_factor)
 
 
 # the detection layer
@@ -170,8 +146,30 @@ class YOLO_V3(t.nn.Module):
         self.y1_bundle = dbl_bundle(1024)
         self.y1_last = t.nn.Sequential(
             dbl_unit(512, 1024),
-            t.nn.Conv2d(1024, 75, 1, padding=1)
+            t.nn.Conv2d(1024, 75, 1, padding=0)
         )
+
+        # conv (DBL) and upsample
+        self.y2_upsample = t.nn.Sequential(
+            dbl_unit(512, 256, 1, pad=0),
+            upsample_unit()
+        )
+        self.y2_bundle = dbl_bundle(512, special=768)
+        self.y2_last = t.nn.Sequential(
+            dbl_unit(256, 512),
+            t.nn.Conv2d(512, 75, 1, padding=0)
+        )
+
+        self.y3_upsample = t.nn.Sequential(
+            dbl_unit(256, 128, 1, pad=0),
+            upsample_unit(),
+        )
+        self.y3_bundle = dbl_bundle(256, special=384)
+        self.y3_last = t.nn.Sequential(
+            dbl_unit(128, 256),
+            t.nn.Conv2d(256, 75, 1, padding=0)
+        )
+
 
     def forward(self, x):
 
@@ -185,7 +183,17 @@ class YOLO_V3(t.nn.Module):
         y1_bundle_output = self.y1_bundle(residual_3_output)
         y1_last_output = self.y1_last(y1_bundle_output)
 
-        return y1_last_output
+        y2_upsample_output = self.y2_upsample(y1_bundle_output)
+        y2_concat_output = t.cat((y2_upsample_output, residual_2_output), 1)
+        y2_bundle_output = self.y2_bundle(y2_concat_output)
+        y2_last_output = self.y2_last(y2_bundle_output)
+
+        y3_upsample_output = self.y3_upsample(y2_bundle_output)
+        y3_concat_output = t.cat((y3_upsample_output, residual_1_output), 1)
+        y3_bundle_output = self.y3_bundle(y3_concat_output)
+        y3_last_output = self.y3_last(y3_bundle_output)
+
+        return y3_last_output
 
 a = YOLO_V3()
 print(a(t.zeros(1, 3, 416, 416)).shape)
