@@ -3,6 +3,8 @@ This repository contains pedagogic implementations of popular ML models with det
 
 Most models are implemented in PyTorch.
 
+PRs are welcome :)
+
 ## Models
 - [yolo-v3](yolo-v3/)
 
