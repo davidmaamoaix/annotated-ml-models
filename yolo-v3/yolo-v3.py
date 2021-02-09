@@ -6,16 +6,21 @@ import torch as t
 import numpy as np
 
 
-# the routing layer routes the output of a previous layer to it;
+# the routing layer routes the output of a previous layer to it
+#
 # e.g. the output of a routing layer assigned to the 1st layer
 # will output whatever the 1st layer outputs
+#
+# in the original implementation this also handles concatenation;
+# however, this script separates the two for readability
 class RouteLayer(t.nn.Module):
 
     def __init__(self, assigned_layer):
         super(RouteLayer, self).__init__()
         self.layer = assigned_layer
 
-# concatenates the output of multiple previous layers together
+# concatenates the output of the target layers among the channels axis as
+# a form of residual
 class ConcatenateLayer(t.nn.Module):
 
     def __init__(self, assigned_layers):
@@ -28,6 +33,48 @@ class YoloLayer(t.nn.Module):
     def __init__(self, anchors):
         super(YoloLayer, self).__init__()
         self.anchors = anchors
+
+
+# a simple residual unit consisting of 2 dbl_units
+class ResidualUnit(t.nn.Module):
+
+    def __init__(self, in_channels):
+        # in_channels specifies the input channel;
+        # conv_1 has out channels of 0.5 * in_channels
+        # conv_2 has out channels of in_channels
+
+        super(ResidualUnit, self).__init__()
+
+        # TODO: the padding doesn't seems right
+        self.conv_1 = dbl_unit(in_channels, in_channels // 2, 1, pad=0)
+        self.conv_2 = dbl_unit(in_channels // 2, in_channels)
+
+    def forward(self, x):
+        conv_1_output = self.conv_1(x)
+        conv_2_output = self.conv_2(conv_1_output)
+        print(x.shape, conv_2_output.shape)
+
+        return conv_2_output + x
+
+
+# a full residual block, consisting of one dbl_unit and
+# numerous ResidualUnit
+class ResidualBlock(t.nn.Module):
+
+    def __init__(self, in_channels, n_res_unit=1):
+        super(ResidualBlock, self).__init__()
+
+        # the first layer is a dbl_unit whose out_channels is
+        # 2 * in_channels of the entire block; note that stride = 2
+        self.conv_1 = dbl_unit(in_channels, in_channels * 2, stride=2)
+
+        res_list = [ResidualUnit(in_channels * 2) for i in range(n_res_unit)]
+        self.res_units = t.nn.Sequential(*res_list)
+
+    def forward(self, x):
+        conv_1_output = self.conv_1(x)
+
+        return self.res_units(conv_1_output)
 
 
 # Darknetconv2D_BN_Leaky is the primary building block
@@ -67,20 +114,6 @@ def upsample_unit(stride=2):
     return t.nn.Upsample(scale_factor=stride)
 
 
-# the routing layer routes the output of a previous layer to it
-#
-# in the original implementation this also handles concatenation;
-# however, this script separates the two for readability
-def route_layer(target):
-    return RouteLayer(target)
-
-
-# concatenates the output of the target layers among the channels axis as
-# a form of residual
-def concatenate_layers(targets):
-    return ConcatenateLayer(targets)
-
-
 # the detection layer
 def yolo_layer(anchors=[(10, 13), (16, 30), (33, 23)]):
     return YoloLayer(anchors)
@@ -97,3 +130,4 @@ class YOLO_V3(t.nn.Module):
 
         super(YOLO_V3, self).__init__()
         self.img_size = img_size
+
