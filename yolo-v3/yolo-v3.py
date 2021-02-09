@@ -176,18 +176,22 @@ class YOLO_V3(t.nn.Module):
         # first conv layer
         initial_conv_output = self.initial_conv(x)
 
+        # Darknet-53's residual layers
         residual_1_output = self.residual_1(initial_conv_output)
         residual_2_output = self.residual_2(residual_1_output)
         residual_3_output = self.residual_3(residual_2_output)
 
+        # y1 output
         y1_bundle_output = self.y1_bundle(residual_3_output)
         y1_last_output = self.y1_last(y1_bundle_output)
 
+        # y2 output
         y2_upsample_output = self.y2_upsample(y1_bundle_output)
         y2_concat_output = t.cat((y2_upsample_output, residual_2_output), 1)
         y2_bundle_output = self.y2_bundle(y2_concat_output)
         y2_last_output = self.y2_last(y2_bundle_output)
 
+        # y3 output
         y3_upsample_output = self.y3_upsample(y2_bundle_output)
         y3_concat_output = t.cat((y3_upsample_output, residual_1_output), 1)
         y3_bundle_output = self.y3_bundle(y3_concat_output)
