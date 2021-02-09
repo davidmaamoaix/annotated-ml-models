@@ -6,6 +6,16 @@ import torch as t
 import numpy as np
 
 
+# the routing layer routes the output of a previous layer to it;
+# e.g. the output of a routing layer assigned to the 1st layer
+# will output whatever the 1st layer outputs
+class RouteLayer(t.nn.Module):
+
+    def __init__(self, assigned_layer):
+        super(RouteLayer, self).__init__()
+        self.layer = assigned_layer
+
+
 # Darknetconv2D_BN_Leaky is the primary building block
 # of the yolo-v3 network; it consists of a convolution
 # layer with batch normalization and a leaky relu
@@ -36,9 +46,25 @@ def dbl_unit(in_channels=3, out_channels=64, kernel_size=3, stride=1, pad=1):
     leaky_relu = t.nn.LeakyReLU(0.1)
     dbl_block.add_module('leaky_relu', leaky_relu)
 
+    return dbl_block
+
 
 def upsample_unit(stride=2):
     return t.nn.Upsample(scale_factor=stride)
+
+
+# the routing layer routes the output of a previous layer to it
+#
+# in the original implementation this also handles concatenation;
+# however, this script separates the two for readability
+def route_layer(target):
+    return RouteLayer(target)
+
+
+# concatenates the output of the target layers among the channels axis as
+# a form of residual
+def concatenate_layers(targets):
+    pass
 
 
 class YOLO_V3(t.nn.Module):
@@ -50,4 +76,5 @@ class YOLO_V3(t.nn.Module):
         # YOLO comes in 3 sizes: 320, 416 and 608; this implementation
         # uses the medium one
 
+        super(YOLO_V3, self).__init__()
         self.img_size = img_size
