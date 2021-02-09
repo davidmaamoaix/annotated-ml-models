@@ -107,11 +107,6 @@ def upsample_unit(scale_factor=2):
     return t.nn.Upsample(scale_factor=scale_factor)
 
 
-# the detection layer
-def yolo_layer(anchors=[(10, 13), (16, 30), (33, 23)]):
-    return YoloLayer(anchors)
-
-
 class YOLO_V3(t.nn.Module):
     """This is the baseline of YOLO V3"""
 
