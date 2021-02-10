@@ -6,10 +6,11 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 
 from util import setup_parser
+from download import coco128
 
 
 def train(epochs=100, batch_size=8):
-	pass
+	coco128()
 
 
 if __name__ == '__main__':
