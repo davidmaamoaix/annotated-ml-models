@@ -107,6 +107,45 @@ def upsample_unit(scale_factor=2):
     return t.nn.Upsample(scale_factor=scale_factor)
 
 
+# converts the x * x * 255 feature map to bounding boxes format
+# whose shape is (batch_size, grid_size ** 2 * 3) where 3 is the
+# amount of anchors
+def convert_output(output, anchors, img_size=416, num_classes=80):
+    # the length of the attributes of each bounding box:
+    # (5 + num_classes) =
+    # (len([x, y, width, height, confidence]) + one_hot_classes)
+    box_length = 5 + num_classes
+
+    # size of each grid; output.shape[2] denotes the amount of grids per axis
+    grid_size = img_size // output.shape[2]
+
+    # should equal to output.shape[2], but just in case img_size is not
+    # an exact multiple of grid_amount
+    grid_amount = img_size // grid_size
+
+    # TODO: simplify the conversion
+    converted = output.view(
+        output.shape[0],
+        box_length * len(anchors),
+        grid_amount ** 2
+    ).transpose(1, 2).contiguous()
+
+    converted = converted.view(
+        output.shape[0],
+        grid_amount ** 2 * len(anchors),
+        box_length
+    )
+
+    # normalizes the anchors by the scale of the detection
+    # map to the input image
+    anchors = [(i[0] / grid_size, i[1] / grid_size) for i in anchors]
+
+    # converts the prediction to bounding boxes; the formula is described
+    # in 2.1 of https://arxiv.org/abs/1804.02767
+
+    print(converted.shape)
+
+
 class YOLO_V3(t.nn.Module):
     """This is the baseline of YOLO V3"""
 
@@ -191,6 +230,11 @@ class YOLO_V3(t.nn.Module):
         y3_concat_output = t.cat((y3_upsample_output, residual_1_output), 1)
         y3_bundle_output = self.y3_bundle(y3_concat_output)
         y3_last_output = self.y3_last(y3_bundle_output)
+
+        convert_output(
+            y1_last_output,
+            [(10, 13), (16, 30), (33, 23)]
+        )
 
         return y3_last_output
 
