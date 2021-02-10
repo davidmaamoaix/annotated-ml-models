@@ -142,8 +142,38 @@ def convert_output(output, anchors, img_size=416, num_classes=80):
 
     # converts the prediction to bounding boxes; the formula is described
     # in 2.1 of https://arxiv.org/abs/1804.02767
+    converted[:, :, 0] = t.sigmoid(converted[:, :, 0]) # x
+    converted[:, :, 1] = t.sigmoid(converted[:, :, 1]) # y
+    converted[:, :, 4] = t.sigmoid(converted[:, :, 4]) # confidence
+    converted[:, :, 5 :] = t.sigmoid(converted[:, :, 5 :]) # classes
 
-    print(converted.shape)
+    grid_range = np.arange(grid_amount)
+    x_axis, y_axis = np.meshgrid(grid_range, grid_range)
+
+    x_offset = t.as_tensor(x_axis, dtype=t.float).view(-1, 1)
+    y_offset = t.as_tensor(y_axis, dtype=t.float).view(-1, 1)
+
+    # concatenate the offset for each grid position
+    offset = t.cat((x_offset, y_offset), 1)
+
+    # repeat it horizontally to match the number of anchors per grid,
+    # then align into the formation of converted
+    offset = offset.repeat(1, len(anchors)).view(-1, 2).unsqueeze(0)
+
+    # apply to output
+    converted[:, :, : 2] += offset
+
+    # align the anchors to match the shape of (width, height) in the output
+    anchors = t.tensor(anchors, dtype=t.float)
+    anchors = anchors.repeat(grid_amount ** 2, 1).unsqueeze(0)
+
+    # the bounding box dimension undergoes log-space transform
+    converted[:, :, 2 : 4] = t.exp(converted[:, :, 2 : 4]) * anchors
+
+    # scale the output to match the image space
+    converted[:, :, : 4] *= grid_size
+
+    return converted
 
 
 class YOLO_V3(t.nn.Module):
@@ -231,9 +261,22 @@ class YOLO_V3(t.nn.Module):
         y3_bundle_output = self.y3_bundle(y3_concat_output)
         y3_last_output = self.y3_last(y3_bundle_output)
 
-        convert_output(
+        anchors = [(10, 13), (16, 30), (33, 23)]
+
+        # converts y1-y3 to bounding boxes, and concatenate them
+        y1_final = convert_output(
             y1_last_output,
-            [(10, 13), (16, 30), (33, 23)]
+            anchors
+        )
+
+        y2_final = convert_output(
+            y2_last_output,
+            anchors,
+        )
+
+        y3_final = convert_output(
+            y3_last_output,
+            anchors
         )
 
         return y3_last_output
