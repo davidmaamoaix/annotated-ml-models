@@ -279,7 +279,6 @@ class YOLO_V3(t.nn.Module):
             anchors
         )
 
-        return y3_last_output
+        output = t.cat((y1_final, y2_final, y3_final), 1)
 
-a = YOLO_V3()
-print(a(t.zeros(1, 3, 416, 416)).shape)
+        return output
